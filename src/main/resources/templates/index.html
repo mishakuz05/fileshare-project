@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FileShare App</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    .navbar-brand { font-weight: bold; }
+    .file-card { transition: transform 0.2s; }
+    .file-card:hover { transform: translateY(-2px); }
+    .auth-section { max-width: 400px; margin: 0 auto; }
+    .file-list { max-height: 500px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+<!-- Навигационная панель -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <i class="fas fa-share-alt me-2"></i>FileShare
+    </a>
+    <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3" id="userInfo" style="display: none;">
+                    Привет, <span id="usernameDisplay"></span>!
+                </span>
+      <button class="btn btn-outline-light btn-sm" onclick="logout()" id="logoutBtn" style="display: none;">
+        <i class="fas fa-sign-out-alt me-1"></i>Выйти
+      </button>
+      <button class="btn btn-light btn-sm" onclick="showAuthModal('login')" id="loginBtn">
+        <i class="fas fa-sign-in-alt me-1"></i>Войти
+      </button>
+      <button class="btn btn-outline-light btn-sm ms-2" onclick="showAuthModal('register')" id="registerBtn">
+        <i class="fas fa-user-plus me-1"></i>Регистрация
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- Основной контент -->
+<div class="container mt-4">
+  <!-- Сообщения -->
+  <div id="alertContainer"></div>
+
+  <!-- Файлы (показывается после авторизации) -->
+  <div id="filesSection" style="display: none;">
+    <div class="row">
+      <div class="col-md-8">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4>Мои файлы</h4>
+          <button class="btn btn-primary" onclick="showUploadModal()">
+            <i class="fas fa-upload me-1"></i>Загрузить файл
+          </button>
+        </div>
+
+        <!-- Мои файлы -->
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0">Мои файлы</h5>
+          </div>
+          <div class="card-body file-list">
+            <div id="myFilesList" class="row"></div>
+          </div>
+        </div>
+
+        <!-- Доступные мне файлы -->
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">Файлы, доступные мне</h5>
+          </div>
+          <div class="card-body file-list">
+            <div id="sharedFilesList" class="row"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <!-- Управление доступом -->
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">Управление доступом</h5>
+          </div>
+          <div class="card-body">
+            <button class="btn btn-outline-primary w-100 mb-2" onclick="showShareModal()">
+              <i class="fas fa-share me-1"></i>Поделиться файлом
+            </button>
+            <button class="btn btn-outline-info w-100" onclick="loadMyShares()">
+              <i class="fas fa-eye me-1"></i>Мои общие файлы
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Приветствие для неавторизованных пользователей -->
+  <div id="welcomeSection" class="text-center mt-5">
+    <div class="row justify-content-center">
+      <div class="col-md-6">
+        <h1 class="display-4 text-primary mb-4">
+          <i class="fas fa-share-alt"></i>
+        </h1>
+        <h2 class="mb-3">Добро пожаловать в FileShare</h2>
+        <p class="lead text-muted mb-4">
+          Безопасный обмен файлами с коллегами и друзьями
+        </p>
+        <div class="auth-section">
+          <button class="btn btn-primary btn-lg w-100 mb-3" onclick="showAuthModal('login')">
+            <i class="fas fa-sign-in-alt me-2"></i>Войти в систему
+          </button>
+          <button class="btn btn-outline-primary btn-lg w-100" onclick="showAuthModal('register')">
+            <i class="fas fa-user-plus me-2"></i>Создать аккаунт
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно авторизации -->
+<div class="modal fade" id="authModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="authModalTitle">Вход в систему</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="authForm">
+          <div class="mb-3">
+            <label for="username" class="form-label">Имя пользователя</label>
+            <input type="text" class="form-control" id="username" required>
+          </div>
+          <div class="mb-3">
+            <label for="password" class="form-label">Пароль</label>
+            <input type="password" class="form-control" id="password" required>
+          </div>
+          <div class="mb-3" id="emailField" style="display: none;">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="email">
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary" id="authSubmitBtn">
+              Войти
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно загрузки файла -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Загрузка файла</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="uploadForm">
+          <div class="mb-3">
+            <label for="file" class="form-label">Выберите файл</label>
+            <input type="file" class="form-control" id="file" required>
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-upload me-1"></i>Загрузить
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно общего доступа -->
+<div class="modal fade" id="shareModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Поделиться файлом</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="shareForm">
+          <div class="mb-3">
+            <label for="shareFile" class="form-label">Файл</label>
+            <select class="form-select" id="shareFile" required>
+              <option value="">Выберите файл</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="shareUser" class="form-label">Пользователь</label>
+            <select class="form-select" id="shareUser" required>
+              <option value="">Выберите пользователя</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="sharePermission" class="form-label">Права доступа</label>
+            <select class="form-select" id="sharePermission" required>
+              <option value="READ">Только чтение</option>
+              <option value="WRITE">Чтение и запись</option>
+            </select>
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-share me-1"></i>Поделиться
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  let token = localStorage.getItem('token');
+  let currentUsername = localStorage.getItem('username');
+
+  // Инициализация при загрузке страницы
+  document.addEventListener('DOMContentLoaded', function() {
+      if (token && currentUsername) {
+          showAuthenticatedUI();
+          loadFiles();
+      } else {
+          showUnauthenticatedUI();
+      }
+  });
+
+  // Показать UI для авторизованного пользователя
+  function showAuthenticatedUI() {
+      document.getElementById('userInfo').style.display = 'block';
+      document.getElementById('usernameDisplay').textContent = currentUsername;
+      document.getElementById('logoutBtn').style.display = 'block';
+      document.getElementById('loginBtn').style.display = 'none';
+      document.getElementById('registerBtn').style.display = 'none';
+      document.getElementById('filesSection').style.display = 'block';
+      document.getElementById('welcomeSection').style.display = 'none';
+  }
+
+  // Показать UI для неавторизованного пользователя
+  function showUnauthenticatedUI() {
+      document.getElementById('userInfo').style.display = 'none';
+      document.getElementById('logoutBtn').style.display = 'none';
+      document.getElementById('loginBtn').style.display = 'block';
+      document.getElementById('registerBtn').style.display = 'block';
+      document.getElementById('filesSection').style.display = 'none';
+      document.getElementById('welcomeSection').style.display = 'block';
+  }
+
+  // Показать модальное окно авторизации
+  function showAuthModal(type) {
+      const modal = new bootstrap.Modal(document.getElementById('authModal'));
+      const form = document.getElementById('authForm');
+      const emailField = document.getElementById('emailField');
+      const submitBtn = document.getElementById('authSubmitBtn');
+
+      if (type === 'login') {
+          document.getElementById('authModalTitle').textContent = 'Вход в систему';
+          emailField.style.display = 'none';
+          submitBtn.textContent = 'Войти';
+          form.onsubmit = handleLogin;
+      } else {
+          document.getElementById('authModalTitle').textContent = 'Регистрация';
+          emailField.style.display = 'block';
+          submitBtn.textContent = 'Зарегистрироваться';
+          form.onsubmit = handleRegister;
+      }
+
+      form.reset();
+      modal.show();
+  }
+
+  // Обработка входа
+  async function handleLogin(e) {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('username', document.getElementById('username').value);
+      formData.append('password', document.getElementById('password').value);
+
+      try {
+          const response = await fetch('/api/auth/login', {
+              method: 'POST',
+              body: formData
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+              token = data.token;
+              currentUsername = data.username;
+              localStorage.setItem('token', token);
+              localStorage.setItem('username', currentUsername);
+
+              showAlert('Успешный вход!', 'success');
+              bootstrap.Modal.getInstance(document.getElementById('authModal')).hide();
+              showAuthenticatedUI();
+              loadFiles();
+          } else {
+              showAlert(data.error || 'Ошибка входа', 'danger');
+          }
+      } catch (error) {
+          showAlert('Ошибка сети: ' + error.message, 'danger');
+      }
+  }
+
+  // Обработка регистрации
+  async function handleRegister(e) {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('username', document.getElementById('username').value);
+      formData.append('password', document.getElementById('password').value);
+      formData.append('email', document.getElementById('email').value);
+
+      try {
+          const response = await fetch('/api/auth/register', {
+              method: 'POST',
+              body: formData
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+              showAlert('Регистрация успешна! Теперь вы можете войти.', 'success');
+              bootstrap.Modal.getInstance(document.getElementById('authModal')).hide();
+              showAuthModal('login');
+          } else {
+              showAlert(data.error || 'Ошибка регистрации', 'danger');
+          }
+      } catch (error) {
+          showAlert('Ошибка сети: ' + error.message, 'danger');
+      }
+  }
+
+  // Загрузка файлов
+  async function loadFiles() {
+      if (!token) return;
+
+      try {
+          const response = await fetch('/api/files', {
+              headers: {
+                  'Authorization': `Bearer ${token}`
+              }
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+              displayMyFiles(data.myFiles || []);
+              displaySharedFiles(data.sharedFiles || []);
+          } else {
+              showAlert(data.error || 'Ошибка загрузки файлов', 'danger');
+          }
+      } catch (error) {
+          showAlert('Ошибка сети: ' + error.message, 'danger');
+      }
+  }
+
+  // Отображение моих файлов
+  function displayMyFiles(files) {
+      const container = document.getElementById('myFilesList');
+
+      if (files.length === 0) {
+          container.innerHTML = '<div class="col-12 text-muted text-center">Файлы не найдены</div>';
+          return;
+      }
+
+      container.innerHTML = files.map(file => `
+          <div class="col-md-6 mb-3">
+              <div class="card file-card">
+                  <div class="card-body">
+                      <div class="d-flex justify-content-between align-items-start">
+                          <div>
+                              <h6 class="card-title">${file.originalFilename}</h6>
+                              <p class="card-text text-muted small">
+                                  ${formatFileSize(file.size)} • ${new Date(file.uploadDate).toLocaleDateString()}
+                              </p>
+                          </div>
+                          <div class="btn-group">
+                              <button class="btn btn-sm btn-outline-primary" onclick="downloadFile(${file.id}, '${file.originalFilename}')">
+                                  <i class="fas fa-download"></i>
+                              </button>
+                              <button class="btn btn-sm btn-outline-danger" onclick="deleteFile(${file.id})">
+                                  <i class="fas fa-trash"></i>
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      `).join('');
+  }
+
+  // Отображение общих файлов
+  function displaySharedFiles(files) {
+      const container = document.getElementById('sharedFilesList');
+
+      if (files.length === 0) {
+          container.innerHTML = '<div class="col-12 text-muted text-center">Нет доступных файлов</div>';
+          return;
+      }
+
+      container.innerHTML = files.map(file => `
+          <div class="col-12 mb-3">
+              <div class="card file-card">
+                  <div class="card-body">
+                      <div class="d-flex justify-content-between align-items-start">
+                          <div>
+                              <h6 class="card-title">${file.originalFilename}</h6>
+                              <p class="card-text text-muted small">
+                                  Владелец: ${file.owner.username}<br>
+                                  ${formatFileSize(file.size)} • ${new Date(file.uploadDate).toLocaleDateString()}
+                              </p>
+                          </div>
+                          <button class="btn btn-sm btn-outline-primary" onclick="downloadFile(${file.id}, '${file.originalFilename}')">
+                              <i class="fas fa-download"></i>
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      `).join('');
+  }
+
+  // Показать модальное окно загрузки
+  function showUploadModal() {
+      const modal = new bootstrap.Modal(document.getElementById('uploadModal'));
+      document.getElementById('uploadForm').reset();
+      modal.show();
+  }
+
+  // Обработка загрузки файла
+  document.getElementById('uploadForm').onsubmit = async function(e) {
+      e.preventDefault();
+      const fileInput = document.getElementById('file');
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+          const response = await fetch('/api/files/upload', {
+              method: 'POST',
+              headers: {
+                  'Authorization': `Bearer ${token}`
+              },
+              body: formData
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+              showAlert('Файл успешно загружен!', 'success');
+              bootstrap.Modal.getInstance(document.getElementById('uploadModal')).hide();
+              loadFiles();
+          } else {
+              showAlert(data.error || 'Ошибка загрузки', 'danger');
+          }
+      } catch (error) {
+          showAlert('Ошибка сети: ' + error.message, 'danger');
+      }
+  };
+
+  // Скачать файл
+async function downloadFile(fileId, fileName) {
+    try {
+        const response = await fetch(`/api/files/download/${fileId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName; // Используем переданное имя
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } else {
+            // Только если ошибка - читаем JSON
+            const data = await response.json();
+            showAlert(data.error || 'Ошибка скачивания', 'danger');
+        }
+    } catch (error) {
+        showAlert('Ошибка сети: ' + error.message, 'danger');
+    }
+}
+
+  // Удалить файл
+  async function deleteFile(fileId) {
+      if (!confirm('Вы уверены, что хотите удалить этот файл?')) return;
+
+      try {
+          const response = await fetch(`/api/files/${fileId}`, {
+              method: 'DELETE',
+              headers: {
+                  'Authorization': `Bearer ${token}`
+              }
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+              showAlert('Файл удален!', 'success');
+              loadFiles();
+          } else {
+              showAlert(data.error || 'Ошибка удаления', 'danger');
+          }
+      } catch (error) {
+          showAlert('Ошибка сети: ' + error.message, 'danger');
+      }
+  }
+
+  // Показать модальное окно общего доступа
+  async function showShareModal() {
+      const modal = new bootstrap.Modal(document.getElementById('shareModal'));
+
+      // Загрузить мои файлы и пользователей
+      await loadMyFilesForSharing();
+      await loadShareableUsers();
+
+      document.getElementById('shareForm').reset();
+      modal.show();
+  }
+
+  // Загрузить мои файлы для общего доступа
+  async function loadMyFilesForSharing() {
+      try {
+          const response = await fetch('/api/files', {
+              headers: {
+                  'Authorization': `Bearer ${token}`
+              }
+          });
+
+          const data = await response.json();
+          const select = document.getElementById('shareFile');
+
+          select.innerHTML = '<option value="">Выберите файл</option>';
+
+          if (response.ok && data.myFiles) {
+              data.myFiles.forEach(file => {
+                  const option = document.createElement('option');
+                  option.value = file.id;
+                  option.textContent = file.originalFilename;
+                  select.appendChild(option);
+              });
+          }
+      } catch (error) {
+          showAlert('Ошибка загрузки файлов', 'danger');
+      }
+  }
+
+  // Загрузить пользователей для общего доступа
+  async function loadShareableUsers() {
+      try {
+          const response = await fetch('/api/share/users', {
+              headers: {
+                  'Authorization': `Bearer ${token}`
+              }
+          });
+
+          const data = await response.json();
+          const select = document.getElementById('shareUser');
+
+          select.innerHTML = '<option value="">Выберите пользователя</option>';
+
+          if (response.ok && data.users) {
+              data.users.forEach(user => {
+                  const option = document.createElement('option');
+                  option.value = user.id;
+                  option.textContent = `${user.username} (${user.email})`;
+                  select.appendChild(option);
+              });
+          }
+      } catch (error) {
+          showAlert('Ошибка загрузки пользователей', 'danger');
+      }
+  }
+
+  // Обработка общего доступа к файлу
+  document.getElementById('shareForm').onsubmit = async function(e) {
+      e.preventDefault();
+
+      const fileId = document.getElementById('shareFile').value;
+      const userId = document.getElementById('shareUser').value;
+      const permission = document.getElementById('sharePermission').value;
+
+      try {
+          const response = await fetch(`/api/share/${fileId}?userId=${userId}&permission=${permission}`, {
+              method: 'POST',
+              headers: {
+                  'Authorization': `Bearer ${token}`
+              }
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+              showAlert('Файл успешно расшарен!', 'success');
+              bootstrap.Modal.getInstance(document.getElementById('shareModal')).hide();
+          } else {
+              showAlert(data.error || 'Ошибка общего доступа', 'danger');
+          }
+      } catch (error) {
+          showAlert('Ошибка сети: ' + error.message, 'danger');
+      }
+  };
+
+  // Загрузить мои общие файлы
+  async function loadMyShares() {
+      try {
+          const response = await fetch('/api/share/my-shares', {
+              headers: {
+                  'Authorization': `Bearer ${token}`
+              }
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+              let message = `У вас ${data.totalSharedFiles} общих файлов:\n\n`;
+              data.sharedFiles.forEach(share => {
+                  message += `• ${share.file.originalFilename} → ${share.user.username} (${share.permission})\n`;
+              });
+              alert(message);
+          } else {
+              showAlert(data.error || 'Ошибка загрузки', 'danger');
+          }
+      } catch (error) {
+          showAlert('Ошибка сети: ' + error.message, 'danger');
+      }
+  }
+
+  // Выход из системы
+  function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      token = null;
+      currentUsername = null;
+      showUnauthenticatedUI();
+      showAlert('Вы вышли из системы', 'info');
+  }
+
+  // Вспомогательные функции
+  function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  function showAlert(message, type) {
+      const container = document.getElementById('alertContainer');
+      const alert = document.createElement('div');
+      alert.className = `alert alert-${type} alert-dismissible fade show`;
+      alert.innerHTML = `
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      `;
+      container.appendChild(alert);
+
+      setTimeout(() => {
+          if (alert.parentNode) {
+              alert.remove();
+          }
+      }, 5000);
+  }
+</script>
+</body>
+</html>
